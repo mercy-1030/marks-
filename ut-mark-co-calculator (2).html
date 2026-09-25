@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UT Mark Distribution &amp; CO Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#182238;
+  --ink-soft:#4B5670;
+  --paper:#F4F5F2;
+  --paper-line:#E3E5DE;
+  --card:#FFFFFF;
+  --border:#DBDED6;
+  --rule:#C9CCC2;
+  --accent:#2B5C8A;
+  --accent-dark:#1E4364;
+  --pass:#2E7D53;
+  --pass-bg:#E9F4EC;
+  --fail:#B23A2E;
+  --fail-bg:#FAECEA;
+  --warn:#9C6B12;
+  --warn-bg:#FBF1DE;
+  --stamp:#B23A2E;
+  --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:14.5px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.app-shell{
+  max-width:1240px;
+  margin:0 auto;
+  padding:28px 24px 80px;
+}
+
+/* ---------- Header ---------- */
+.app-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+  padding-bottom:22px;
+  border-bottom:2px solid var(--ink);
+  margin-bottom:28px;
+}
+.app-title-block h1{
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:28px;
+  letter-spacing:-0.01em;
+  margin:0 0 4px;
+  color:var(--ink);
+}
+.app-title-block p{
+  margin:0;
+  color:var(--ink-soft);
+  font-size:13.5px;
+  max-width:520px;
+}
+.stamp{
+  border:2px solid var(--stamp);
+  color:var(--stamp);
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:600;
+  padding:7px 14px;
+  border-radius:3px;
+  transform:rotate(-2deg);
+  white-space:nowrap;
+  letter-spacing:0.04em;
+}
+
+/* ---------- Layout: stepper + panel ---------- */
+.layout{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:32px;
+  align-items:start;
+}
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr;}
+  .stepper{
+    display:flex;
+    overflow-x:auto;
+    gap:4px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--border);
+  }
+  .stepper .step-item{flex:0 0 auto;}
+}
+
+.stepper{
+  position:sticky;
+  top:24px;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.step-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:4px;
+  cursor:pointer;
+  color:var(--ink-soft);
+  border-left:2px solid transparent;
+  font-size:13.5px;
+}
+.step-item .num{
+  font-family:var(--font-mono);
+  font-size:12px;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:1.5px solid var(--rule);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:var(--ink-soft);
+}
+.step-item.active{
+  color:var(--ink);
+  font-weight:600;
+  background:var(--card);
+  border-left:2px solid var(--accent);
+}
+.step-item.active .num{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.step-item.done .num{
+  background:var(--ink);
+  border-color:var(--ink);
+  color:#fff;
+}
+.step-item.disabled{
+  opacity:0.42;
+  cursor:not-allowed;
+}
+
+.panel{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:26px 28px;
+  min-height:420px;
+}
+.panel h2{
+  font-family:var(--font-display);
+  font-size:20px;
+  font-weight:600;
+  margin:0 0 6px;
+}
+.panel .sub{
+  color:var(--ink-soft);
+  font-size:13.5px;
+  margin:0 0 22px;
+  max-width:640px;
+}
+
+/* ---------- Form controls ---------- */
+label.field-label{
+  display:block;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-soft);
+  margin-bottom:6px;
+  letter-spacing:0.01em;
+}
+input[type=text],input[type=number]{
+  font-family:var(--font-mono);
+  font-size:14px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:8px 10px;
+  background:#fff;
+  color:var(--ink);
+  width:100%;
+}
+input[type=text]:focus,input[type=number]:focus,select:focus{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+  border-color:var(--accent);
+}
+select{
+  font-family:var(--font-body);
+  font-size:13.5px;
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:7px 8px;
+  background:#fff;
+  color:var(--ink);
+  width:100%;
+}
+.field-row{
+  display:flex;
+  gap:14px;
+  align-items:flex-end;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+.field-row .field{width:220px;}
+
+button{
+  font-family:var(--font-body);
+  font-size:13.5px;
+  font-weight:600;
+  border-radius:4px;
+  border:1px solid var(--ink);
+  background:var(--ink);
+  color:#fff;
+  padding:9px 18px;
+  cursor:pointer;
+  transition:opacity .12s ease;
+}
+button:hover{opacity:0.86;}
+button:disabled{opacity:0.35;cursor:not-allowed;}
+button.secondary{
+  background:#fff;
+  color:var(--ink);
+  border:1px solid var(--border);
+}
+button.ghost{
+  background:transparent;
+  color:var(--accent-dark);
+  border:1px solid var(--accent-dark);
+  padding:7px 14px;
+}
+button.danger-ghost{
+  background:transparent;
+  color:var(--fail);
+  border:1px solid var(--fail);
+  padding:6px 12px;
+  font-size:12.5px;
+}
+button.small{padding:6px 12px;font-size:12.5px;}
+
+.panel-footer{
+  display:flex;
+  justify-content:space-between;
+  margin-top:26px;
+  padding-top:18px;
+  border-top:1px solid var(--paper-line);
+}
+
+/* ---------- Tables ---------- */
+.table-wrap{
+  border:1px solid var(--border);
+  border-radius:5px;
+  overflow:auto;
+  max-height:520px;
+}
+table{
+  border-collapse:collapse;
+  width:100%;
+  font-size:13px;
+}
+thead th{
+  position:sticky;
+  top:0;
+  background:var(--ink);
+  color:#fff;
+  font-weight:600;
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  padding:9px 8px;
+  text-align:left;
+  white-space:nowrap;
+  z-index:1;
+}
+tbody td{
+  padding:6px 8px;
+  border-bottom:1px solid var(--paper-line);
+  white-space:nowrap;
+}
+tbody tr:nth-child(even){background:#FAFAF8;}
+tbody tr:hover{background:#F0F3EF;}
+table input[type=text],table input[type=number]{
+  padding:5px 7px;
+  font-size:12.5px;
+  min-width:70px;
+}
+td.num{font-family:var(--font-mono);text-align:right;}
+td.center{text-align:center;}
+
+/* ---------- Cards / dashboard ---------- */
+.stat-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:12px;
+  margin-bottom:24px;
+}
+.stat-card{
+  border:1px solid var(--border);
+  border-radius:5px;
+  padding:14px 16px;
+  background:#fff;
+}
+.stat-card .label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--ink-soft);
+  font-weight:600;
+  margin-bottom:6px;
+}
+.stat-card .value{
+  font-family:var(--font-display);
+  font-size:26px;
+  font-weight:600;
+  color:var(--ink);
+}
+.stat-card.pass .value{color:var(--pass);}
+.stat-card.fail .value{color:var(--fail);}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-family:var(--font-mono);
+  font-size:12px;
+  font-weight:600;
+  padding:2px 8px;
+  border-radius:3px;
+}
+.badge.pass{background:var(--pass-bg);color:var(--pass);}
+.badge.fail{background:var(--fail-bg);color:var(--fail);}
+.badge.warn{background:var(--warn-bg);color:var(--warn);}
+
+.alert{
+  border-radius:5px;
+  padding:12px 14px;
+  font-size:13px;
+  margin-bottom:16px;
+  border:1px solid transparent;
+}
+.alert.error{background:var(--fail-bg);border-color:#EAC5C0;color:var(--fail);}
+.alert.warn{background:var(--warn-bg);border-color:#EBDBAF;color:var(--warn);}
+.alert.info{background:#EAF1F7;border-color:#CBDCEB;color:var(--accent-dark);}
+.alert ul{margin:6px 0 0;padding-left:18px;}
+
+/* ---------- Question pattern / CO mapping blocks ---------- */
+.pattern-section{margin-bottom:22px;}
+.pattern-section > .head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+.pattern-section > .head h3{
+  font-family:var(--font-display);
+  font-size:15.5px;
+  font-weight:600;
+  margin:0;
+}
+.pattern-section > .head .max-total{
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  color:var(--ink-soft);
+}
+.qrow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px;
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  margin-bottom:6px;
+  background:#FCFCFB;
+}
+.qrow .qid{
+  font-family:var(--font-mono);
+  font-weight:600;
+  width:66px;
+  flex:0 0 auto;
+}
+.qrow input[type=number]{width:80px;}
+.qrow .grp-label{color:var(--ink-soft);font-size:12px;}
+.group-block{
+  border:1px dashed var(--rule);
+  border-radius:5px;
+  padding:10px;
+  margin-bottom:8px;
+}
+.group-block .grp-title{
+  font-size:11.5px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  color:var(--ink-soft);
+  font-weight:600;
+  margin-bottom:8px;
+}
+
+.co-total-line{
+  font-family:var(--font-mono);
+  font-size:12.5px;
+  margin-top:10px;
+  color:var(--ink-soft);
+}
+.co-total-line strong{color:var(--ink);}
+
+/* ---------- Modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(24,34,56,0.55);
+  display:flex;align-items:center;justify-content:center;
+  z-index:50;
+  padding:24px;
+}
+.modal{
+  background:#fff;
+  border-radius:6px;
+  max-width:560px;
+  width:100%;
+  max-height:88vh;
+  overflow:auto;
+  padding:26px 28px;
+  border:1px solid var(--border);
+}
+.modal .close-x{
+  float:right;
+  background:transparent;
+  border:none;
+  color:var(--ink-soft);
+  font-size:20px;
+  cursor:pointer;
+  padding:0 4px;
+}
+.modal h3{
+  font-family:var(--font-display);
+  font-size:19px;
+  margin:0 0 2px;
+}
+.modal .meta-line{color:var(--ink-soft);font-size:13px;margin-bottom:16px;}
+
+.upload-box{
+  border:1.5px dashed var(--rule);
+  border-radius:5px;
+  padding:20px;
+  text-align:center;
+  color:var(--ink-soft);
+  font-size:13px;
+  margin-bottom:18px;
+  background:#FCFCFB;
+}
+.upload-box input[type=file]{margin-top:10px;}
+
+.tabs{display:flex;gap:6px;margin-bottom:18px;}
+.tab-btn{
+  padding:7px 14px;
+  border-radius:4px 4px 0 0;
+  border:1px solid var(--border);
+  border-bottom:none;
+  background:#F0F1EC;
+  color:var(--ink-soft);
+  font-size:13px;
+  cursor:pointer;
+}
+.tab-btn.active{background:#fff;color:var(--ink);font-weight:600;}
+
+.hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+.footer-note{
+  text-align:center;
+  color:var(--ink-soft);
+  font-size:12px;
+  margin-top:36px;
+}
+</style>
+</head>
+<body>
+<div class="app-shell" id="app"></div>
+<script id="core-logic">
+/* ============================================================
+   CORE CALCULATION ENGINE
+   Deterministic, seeded, programmatically validated.
+   ============================================================ */
+
+function hashString(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededRandom(seedStr) {
+  return mulberry32(hashString(String(seedStr)));
+}
+
+// pattern: { singles:[{id,max}], groups:[{name,options:[{id,max},{id,max}]}] }
+function patternTotalMax(pattern) {
+  let total = 0;
+  pattern.singles.forEach(q => (total += Number(q.max) || 0));
+  pattern.groups.forEach(g => (total += Math.max(Number(g.options[0].max) || 0, Number(g.options[1].max) || 0)));
+  return total;
+}
+
+function allFieldIds(pattern) {
+  const ids = pattern.singles.map(q => q.id);
+  pattern.groups.forEach(g => g.options.forEach(o => ids.push(o.id)));
+  return ids;
+}
+
+function buildActiveQuestions(pattern, registerNumber) {
+  const rng = seededRandom(registerNumber + '|ab|' + pattern.groups.map(g=>g.name).join(','));
+  const active = [];
+  const selection = {};
+  pattern.singles.forEach(q => active.push({ id: q.id, max: Number(q.max) || 0 }));
+  pattern.groups.forEach(g => {
+    const gRng = seededRandom(registerNumber + '|ab|' + g.name);
+    const pickA = gRng() < 0.5;
+    const chosen = pickA ? g.options[0] : g.options[1];
+    active.push({ id: chosen.id, max: Number(chosen.max) || 0 });
+    selection[g.name] = chosen.id;
+  });
+  return { active, selection };
+}
+
+function distributeUnits(active, totalUnits, registerNumber) {
+  const rng = seededRandom(registerNumber + '|dist');
+  const n = active.length;
+  // Whole-number units only — each unit is one full mark, so every
+  // question-wise mark produced below is always a whole number (no .5 splits).
+  const maxUnits = active.map(q => Math.round(q.max));
+  const sumMaxUnits = maxUnits.reduce((a, b) => a + b, 0);
+  totalUnits = Math.max(0, Math.min(totalUnits, sumMaxUnits));
+
+  const weights = active.map(() => 0.4 + rng() * 1.2);
+  const wSum = weights.reduce((a, b) => a + b, 0) || 1;
+
+  let allocated = weights.map((w, i) => {
+    const proportional = Math.floor((totalUnits * w) / wSum);
+    return Math.min(proportional, maxUnits[i]);
+  });
+
+  let allocatedSum = allocated.reduce((a, b) => a + b, 0);
+  let remainder = totalUnits - allocatedSum;
+
+  const order = [...Array(n).keys()];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+
+  let guard = 0;
+  while (remainder > 0 && guard < 200000) {
+    let progressed = false;
+    for (const idx of order) {
+      if (remainder <= 0) break;
+      if (allocated[idx] < maxUnits[idx]) {
+        allocated[idx] += 1;
+        remainder -= 1;
+        progressed = true;
+      }
+    }
+    guard += 1;
+    if (!progressed) break;
+  }
+
+  return allocated;
+}
+
+// Process a single student. Returns full breakdown + validation flags.
+function processStudent(pattern, coMap, regNo, name, totalMark100, passMark) {
+  const convertedMaxTotal = patternTotalMax(pattern);
+  const clampedTotal = Math.max(0, Math.min(100, Number(totalMark100) || 0));
+  // Whole-number units only — each unit is one full mark, so every
+  // question-wise mark produced below is always a whole number (no .5 splits).
+  const convertedMark = Math.round((clampedTotal * convertedMaxTotal) / 100);
+
+  const { active, selection } = buildActiveQuestions(pattern, regNo);
+  const totalUnits = convertedMark;
+  const awardedList = distributeUnits(active, totalUnits, regNo);
+
+  const fields = allFieldIds(pattern);
+  const marksByField = {};
+  fields.forEach(id => (marksByField[id] = 0));
+  active.forEach((q, i) => (marksByField[q.id] = awardedList[i]));
+
+  const awardedSum = awardedList.reduce((a, b) => a + b, 0);
+  const total100 = Math.round(((awardedSum * 100) / convertedMaxTotal) * 2) / 2;
+
+  // CO totals
+  const coTotals = { CO1: 0, CO2: 0, CO3: 0, CO4: 0, CO5: 0, CO6: 0 };
+  let unmapped = [];
+  fields.forEach(id => {
+    const co = coMap[id];
+    if (co && coTotals.hasOwnProperty(co)) {
+      coTotals[co] += marksByField[id];
+    } else {
+      unmapped.push(id);
+    }
+  });
+  const coSum = Object.values(coTotals).reduce((a, b) => a + b, 0);
+
+  // validation
+  const errors = [];
+  fields.forEach(id => {
+    if (marksByField[id] < 0) errors.push(`${id} is negative`);
+  });
+  pattern.singles.forEach(q => {
+    if (marksByField[q.id] > Number(q.max) + 1e-9) errors.push(`${q.id} exceeds max`);
+  });
+  pattern.groups.forEach(g => {
+    const [a, b] = g.options;
+    const aVal = marksByField[a.id], bVal = marksByField[b.id];
+    const bothNonZero = aVal > 0 && bVal > 0;
+    if (bothNonZero) errors.push(`${g.name}: both options awarded`);
+    if (aVal > Number(a.max) + 1e-9) errors.push(`${a.id} exceeds max`);
+    if (bVal > Number(b.max) + 1e-9) errors.push(`${b.id} exceeds max`);
+  });
+  if (Math.abs(awardedSum - convertedMark) > 1e-9) errors.push('question total does not equal converted mark');
+  if (unmapped.length === 0 && Math.abs(coSum - awardedSum) > 1e-9) errors.push('CO total does not equal awarded marks');
+
+  const percentage = Math.round(total100 * 10) / 10;
+  const result = total100 >= Number(passMark) ? 'PASS' : 'FAIL';
+
+  return {
+    regNo, name,
+    totalEntered: clampedTotal,
+    convertedMark, convertedMaxTotal,
+    marksByField, selection,
+    coTotals, coSum,
+    awardedSum, total100, percentage,
+    result, unmapped, errors,
+    valid: errors.length === 0 && unmapped.length === 0,
+  };
+}
+</script>
+<script id="app-logic">
+/* ============================================================
+   APPLICATION STATE
+   ============================================================ */
+function defaultPattern() {
+  return {
+    singles: [
+      { id: 'Q1', max: 2 }, { id: 'Q2', max: 2 }, { id: 'Q3', max: 2 },
+      { id: 'Q4', max: 2 }, { id: 'Q5', max: 2 },
+    ],
+    groups: [
+      { name: 'Q6', options: [{ id: 'Q6.A', max: 13 }, { id: 'Q6.B', max: 13 }] },
+      { name: 'Q7', options: [{ id: 'Q7.A', max: 13 }, { id: 'Q7.B', max: 13 }] },
+      { name: 'Q8', options: [{ id: 'Q8.A', max: 14 }, { id: 'Q8.B', max: 14 }] },
+    ],
+  };
+}
+
+function makeStudentRows(n) {
+  const rows = [];
+  for (let i = 0; i < n; i++) rows.push({ sno: i + 1, regNo: String(i + 1), name: `Student ${i + 1}`, total: '' });
+  return rows;
+}
+
+const state = {
+  step: 1,
+  maxUnlocked: 1,
+  numStudents: 5,
+  students: makeStudentRows(5),
+  pattern: defaultPattern(),
+  coMap: {},
+  passMark: 40,
+  results: null,
+  modalIdx: null,
+  uploadErrors: [],
+};
+
+const STEP_LABELS = [
+  'Student Details',
+  'Question Pattern',
+  'CO Mapping',
+  'Pass Mark',
+  'Generate Results',
+  'View & Download',
+];
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtNum(n) {
+  if (n === undefined || n === null || Number.isNaN(n)) return '0';
+  return (Math.round(n * 2) / 2).toString();
+}
+
+/* ============================================================
+   RENDER SHELL
+   ============================================================ */
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header class="app-header">
+      <div class="app-title-block">
+        <h1>Mark Distribution &amp; CO Calculator</h1>
+        <p>Enter student totals, configure the question pattern and CO mapping, and let the system distribute question-wise marks and compute CO1&ndash;CO6 automatically.</p>
+      </div>
+      <div class="stamp">UT1 &middot; AUTO-GRADED</div>
+    </header>
+    <div class="layout">
+      <nav class="stepper" id="stepper"></nav>
+      <section class="panel" id="panel"></section>
+    </div>
+    <p class="footer-note">All calculations are deterministic and validated programmatically before display or export.</p>
+  `;
+  renderStepper();
+  renderPanel();
+}
+
+function renderStepper() {
+  const el = document.getElementById('stepper');
+  el.innerHTML = STEP_LABELS.map((label, i) => {
+    const n = i + 1;
+    const cls = ['step-item'];
+    if (n === state.step) cls.push('active');
+    else if (n < state.step) cls.push('done');
+    if (n > state.maxUnlocked) cls.push('disabled');
+    return `<div class="${cls.join(' ')}" data-step="${n}">
+      <span class="num">${n < state.maxUnlocked ? '&#10003;' : n}</span>
+      <span>${label}</span>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.step-item').forEach(node => {
+    node.addEventListener('click', () => {
+      const n = Number(node.dataset.step);
+      if (n <= state.maxUnlocked) { state.step = n; render(); }
+    });
+  });
+}
+
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  switch (state.step) {
+    case 1: panel.innerHTML = stepStudentsHTML(); afterStepStudents(); break;
+    case 2: panel.innerHTML = stepPatternHTML(); afterStepPattern(); break;
+    case 3: panel.innerHTML = stepCoMapHTML(); afterStepCoMap(); break;
+    case 4: panel.innerHTML = stepPassMarkHTML(); afterStepPassMark(); break;
+    case 5: panel.innerHTML = stepGenerateHTML(); afterStepGenerate(); break;
+    case 6: panel.innerHTML = stepResultsHTML(); afterStepResults(); break;
+  }
+}
+
+function goStep(n) {
+  state.step = n;
+  state.maxUnlocked = Math.max(state.maxUnlocked, n);
+  render();
+}
+
+/* ============================================================
+   STEP 1 — STUDENT DETAILS
+   ============================================================ */
+function stepStudentsHTML() {
+  const rows = state.students.map(s => `
+    <tr data-sno="${s.sno}">
+      <td class="num">${s.sno}</td>
+      <td><input type="text" data-field="regNo" value="${esc(s.regNo)}" placeholder="e.g. 23AI0${String(s.sno).padStart(2,'0')}"></td>
+      <td><input type="text" data-field="name" value="${esc(s.name)}" placeholder="Student name"></td>
+      <td><input type="number" data-field="total" value="${esc(s.total)}" min="0" max="100" step="0.5" placeholder="/100"></td>
+    </tr>`).join('');
+
+  return `
+    <h2>Step 1 &middot; Student Details</h2>
+    <p class="sub">Set the number of students, then enter Register Number, Student Name and Total Mark (out of 100) for each &mdash; or upload a simple Excel sheet instead.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Number of students</label>
+        <input type="number" id="numStudentsInput" min="1" max="2000" value="${state.numStudents}">
+      </div>
+      <button class="secondary" id="applyNumStudents">Generate rows</button>
+      <button class="ghost" id="openUploadBtn">Upload Excel instead</button>
+    </div>
+
+    <div id="uploadErrorBox"></div>
+    <p class="hint" style="margin:-6px 0 12px;">Tip: copy a column of marks (or Register Numbers / Names) from Excel and paste into any cell below — it fills down automatically from that row, adding rows if needed.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>S.No</th><th>Register Number</th><th>Student Name</th><th>Total Mark /100</th></tr></thead>
+        <tbody id="studentsTbody">${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="panel-footer">
+      <span></span>
+      <button id="step1Next">Next: Question Pattern &rarr;</button>
+    </div>
+  `;
+}
+
+function afterStepStudents() {
+  document.getElementById('applyNumStudents').addEventListener('click', () => {
+    const n = Math.max(1, Math.min(2000, Math.round(Number(document.getElementById('numStudentsInput').value) || 1)));
+    const existing = state.students;
+    const rows = makeStudentRows(n).map((r, i) => existing[i] ? { ...r, ...existing[i], sno: i + 1 } : r);
+    state.numStudents = n;
+    state.students = rows;
+    renderPanel();
+  });
+
+  document.getElementById('openUploadBtn').addEventListener('click', openUploadModal);
+
+  const tbody = document.getElementById('studentsTbody');
+  tbody.addEventListener('input', e => {
+    const field = e.target.dataset.field;
+    if (!field) return;
+    const sno = Number(e.target.closest('tr').dataset.sno);
+    const row = state.students.find(s => s.sno === sno);
+    if (row) row[field] = e.target.value;
+  });
+
+  // Excel-style paste: copy a column (marks, register numbers, or names) and
+  // paste into any cell — it fills down starting from that row, adding rows
+  // automatically if the pasted block runs past the last row (capped at 2000).
+  tbody.addEventListener('paste', e => {
+    const field = e.target.dataset.field;
+    if (!field) return;
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text || !/[\r\n]/.test(text)) return; // let a normal single-value paste behave natively
+    e.preventDefault();
+
+    let lines = text.split(/\r\n|\n|\r/);
+    if (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+    const values = lines.map(line => line.split('\t')[0].trim());
+    if (!values.length) return;
+
+    const startSno = Number(e.target.closest('tr').dataset.sno);
+    const neededCount = Math.min(2000, startSno - 1 + values.length);
+
+    if (neededCount > state.students.length) {
+      const additional = makeStudentRows(neededCount)
+        .slice(state.students.length)
+        .map((r, i) => ({ ...r, sno: state.students.length + i + 1 }));
+      state.students = state.students.concat(additional);
+      state.numStudents = state.students.length;
+    }
+
+    values.forEach((val, i) => {
+      const sno = startSno + i;
+      if (sno > 2000) return;
+      const row = state.students.find(s => s.sno === sno);
+      if (row) row[field] = val;
+    });
+
+    renderPanel();
+  });
+
+  document.getElementById('step1Next').addEventListener('click', () => {
+    const errs = validateStudents();
+    const box = document.getElementById('uploadErrorBox');
+    if (errs.length) {
+      box.innerHTML = `<div class="alert error"><strong>Please fix the following before continuing:</strong><ul>${errs.slice(0,12).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>${errs.length>12?`<div>...and ${errs.length-12} more.</div>`:''}</div>`;
+      return;
+    }
+    box.innerHTML = '';
+    goStep(2);
+  });
+}
+
+function validateStudents() {
+  const errs = [];
+  state.students.forEach(s => {
+    if (!String(s.regNo).trim()) errs.push(`Row ${s.sno}: Register Number is missing.`);
+    if (!String(s.name).trim()) errs.push(`Row ${s.sno}: Student Name is missing.`);
+    const t = Number(s.total);
+    if (s.total === '' || s.total === null || Number.isNaN(t)) errs.push(`Row ${s.sno} (${s.regNo || '—'}): Total Mark is missing or not a number.`);
+    else if (t < 0 || t > 100) errs.push(`Row ${s.sno} (${s.regNo || '—'}): Total Mark ${t} is outside the valid 0&ndash;100 range.`);
+  });
+  const regSeen = new Set();
+  state.students.forEach(s => {
+    const key = String(s.regNo).trim();
+    if (key && regSeen.has(key)) errs.push(`Duplicate Register Number: ${key}.`);
+    regSeen.add(key);
+  });
+  return errs;
+}
+
+/* ---- Excel upload modal ---- */
+function openUploadModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'uploadOverlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-x" id="closeUpload">&times;</button>
+      <h3>Upload Student List</h3>
+      <p class="meta-line">Required columns: Register Number, Student Name, Total Mark. S.No is optional &mdash; it will be generated automatically.</p>
+      <div class="upload-box">
+        Drop an .xlsx / .xls / .csv file or choose one below.<br>
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv">
+      </div>
+      <div id="modalUploadErrors"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('closeUpload').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('excelFileInput').addEventListener('change', handleExcelUpload);
+}
+
+function handleExcelUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      importStudentRows(rows);
+    } catch (err) {
+      document.getElementById('modalUploadErrors').innerHTML =
+        `<div class="alert error">Could not read this file. Please upload a valid .xlsx, .xls or .csv file.</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function findKey(rowKeys, candidates) {
+  const norm = k => k.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const cand of candidates) {
+    const found = rowKeys.find(k => norm(k) === norm(cand));
+    if (found) return found;
+  }
+  return null;
+}
+
+function importStudentRows(rawRows) {
+  const errBox = document.getElementById('modalUploadErrors');
+  if (!rawRows.length) {
+    errBox.innerHTML = `<div class="alert error">The uploaded sheet is empty.</div>`;
+    return;
+  }
+  const keys = Object.keys(rawRows[0]);
+  const regKey = findKey(keys, ['Register Number', 'RegisterNo', 'Reg No', 'RegNo', 'Register Num']);
+  const nameKey = findKey(keys, ['Student Name', 'Name']);
+  const totalKey = findKey(keys, ['Total Mark', 'Total Marks', 'Total', 'Total Mark /100', 'Marks']);
+
+  if (!regKey || !nameKey || !totalKey) {
+    errBox.innerHTML = `<div class="alert error">Required columns are missing. Please provide Register Number, Student Name and Total Mark.</div>`;
+    return;
+  }
+
+  const rowErrors = [];
+  const students = rawRows.map((r, i) => {
+    const regNo = String(r[regKey] ?? '').trim();
+    const name = String(r[nameKey] ?? '').trim();
+    let total = r[totalKey];
+    total = total === '' ? '' : Number(total);
+    if (Number.isNaN(total) || total === '') {
+      rowErrors.push(`Row ${i + 2} (${regNo || 'no reg. no.'}): invalid Total Mark.`);
+    } else if (total < 0 || total > 100) {
+      rowErrors.push(`Row ${i + 2} (${regNo || 'no reg. no.'}): Total Mark ${total} out of range.`);
+    }
+    return { sno: i + 1, regNo, name, total: total === '' ? '' : total };
+  });
+
+  state.students = students;
+  state.numStudents = students.length;
+
+  if (rowErrors.length) {
+    errBox.innerHTML = `<div class="alert warn"><strong>Imported with ${rowErrors.length} issue(s) — please review the table:</strong><ul>${rowErrors.slice(0,10).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    setTimeout(() => { document.getElementById('uploadOverlay')?.remove(); renderPanel(); }, 1600);
+  } else {
+    document.getElementById('uploadOverlay')?.remove();
+    renderPanel();
+  }
+}
+
+/* ============================================================
+   STEP 2 — QUESTION PATTERN
+   ============================================================ */
+function stepPatternHTML() {
+  const p = state.pattern;
+  const singlesHTML = p.singles.map((q, i) => `
+    <div class="qrow" data-idx="${i}">
+      <span class="qid">${esc(q.id)}</span>
+      <input type="text" data-role="single-id" data-idx="${i}" value="${esc(q.id)}" style="width:90px" title="Question label">
+      <span class="grp-label">max marks</span>
+      <input type="number" data-role="single-max" data-idx="${i}" value="${q.max}" min="0" step="0.5">
+      <button class="danger-ghost" data-role="remove-single" data-idx="${i}">Remove</button>
+    </div>`).join('');
+
+  const groupsHTML = p.groups.map((g, gi) => `
+    <div class="group-block" data-gidx="${gi}">
+      <div class="grp-title">Alternative group &mdash; only one option is attempted</div>
+      <div class="qrow">
+        <input type="text" data-role="group-name" data-gidx="${gi}" value="${esc(g.name)}" style="width:70px" title="Group name">
+        <input type="text" data-role="opt-id" data-gidx="${gi}" data-oidx="0" value="${esc(g.options[0].id)}" style="width:80px">
+        <span class="grp-label">max</span>
+        <input type="number" data-role="opt-max" data-gidx="${gi}" data-oidx="0" value="${g.options[0].max}" min="0" step="0.5">
+        <span class="grp-label">OR</span>
+        <input type="text" data-role="opt-id" data-gidx="${gi}" data-oidx="1" value="${esc(g.options[1].id)}" style="width:80px">
+        <span class="grp-label">max</span>
+        <input type="number" data-role="opt-max" data-gidx="${gi}" data-oidx="1" value="${g.options[1].max}" min="0" step="0.5">
+        <button class="danger-ghost" data-role="remove-group" data-gidx="${gi}">Remove</button>
+      </div>
+    </div>`).join('');
+
+  const total = patternTotalMax(p);
+
+  return `
+    <h2>Step 2 &middot; Question Pattern</h2>
+    <p class="sub">Default UT1 pattern shown below (Part A + two A/B alternatives in Part B + one A/B alternative in Part C, total 50). Edit freely if this exam uses a different pattern &mdash; question-wise marks will always be distributed to add up to each student's converted total.</p>
+
+    <div class="pattern-section">
+      <div class="head"><h3>Part A &mdash; single questions</h3><button class="ghost small" id="addSingle">+ Add question</button></div>
+      ${singlesHTML || '<p class="hint">No single questions configured.</p>'}
+    </div>
+
+    <div class="pattern-section">
+      <div class="head"><h3>Part B / C &mdash; A/B alternative groups</h3><button class="ghost small" id="addGroup">+ Add alternative group</button></div>
+      ${groupsHTML || '<p class="hint">No alternative groups configured.</p>'}
+    </div>
+
+    <div class="co-total-line">Question paper maximum: <strong id="patternTotal">${total}</strong> marks &nbsp;(marks entered out of 100 are converted to this scale internally).</div>
+
+    <div class="panel-footer">
+      <div>
+        <button class="secondary" id="resetPattern">Reset to default UT1 pattern</button>
+        <button class="ghost" id="backToStep1">&larr; Back</button>
+      </div>
+      <button id="step2Next">Next: CO Mapping &rarr;</button>
+    </div>
+  `;
+}
+
+function afterStepPattern() {
+  const panel = document.getElementById('panel');
+
+  panel.addEventListener('input', e => {
+    const role = e.target.dataset.role;
+    if (!role) return;
+    const p = state.pattern;
+    if (role === 'single-id') p.singles[e.target.dataset.idx].id = e.target.value;
+    if (role === 'single-max') p.singles[e.target.dataset.idx].max = Number(e.target.value) || 0;
+    if (role === 'group-name') p.groups[e.target.dataset.gidx].name = e.target.value;
+    if (role === 'opt-id') p.groups[e.target.dataset.gidx].options[e.target.dataset.oidx].id = e.target.value;
+    if (role === 'opt-max') p.groups[e.target.dataset.gidx].options[e.target.dataset.oidx].max = Number(e.target.value) || 0;
+    document.getElementById('patternTotal').textContent = patternTotalMax(state.pattern);
+  });
+
+  panel.addEventListener('click', e => {
+    const role = e.target.dataset.role;
+    if (role === 'remove-single') {
+      state.pattern.singles.splice(Number(e.target.dataset.idx), 1);
+      renderPanel();
+    }
+    if (role === 'remove-group') {
+      state.pattern.groups.splice(Number(e.target.dataset.gidx), 1);
+      renderPanel();
+    }
+  });
+
+  document.getElementById('addSingle').addEventListener('click', () => {
+    const n = state.pattern.singles.length + 1;
+    state.pattern.singles.push({ id: `Q${state.pattern.singles.length + state.pattern.groups.length + 1}`, max: 2 });
+    renderPanel();
+  });
+
+  document.getElementById('addGroup').addEventListener('click', () => {
+    const idx = state.pattern.groups.length;
+    const baseNum = state.pattern.singles.length + state.pattern.groups.length + 1;
+    state.pattern.groups.push({ name: `Q${baseNum}`, options: [{ id: `Q${baseNum}.A`, max: 10 }, { id: `Q${baseNum}.B`, max: 10 }] });
+    renderPanel();
+  });
+
+  document.getElementById('resetPattern').addEventListener('click', () => {
+    state.pattern = defaultPattern();
+    renderPanel();
+  });
+
+  document.getElementById('backToStep1').addEventListener('click', () => goStep(1));
+
+  document.getElementById('step2Next').addEventListener('click', () => {
+    const p = state.pattern;
+    const errs = [];
+    if (!p.singles.length && !p.groups.length) errs.push('Add at least one question to the pattern.');
+    p.singles.forEach(q => { if (!q.id.trim()) errs.push('Every question needs a label.'); if (q.max <= 0) errs.push(`${q.id || 'A question'} must have a max mark greater than 0.`); });
+    p.groups.forEach(g => { if (!g.name.trim()) errs.push('Every alternative group needs a name.'); g.options.forEach(o => { if (o.max <= 0) errs.push(`${o.id || 'An option'} must have a max mark greater than 0.`); }); });
+    const ids = allFieldIds(p);
+    if (new Set(ids).size !== ids.length) errs.push('Question labels must be unique.');
+    if (errs.length) {
+      panel.querySelector('.co-total-line').insertAdjacentHTML('afterend', `<div class="alert error"><ul>${errs.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`);
+      return;
+    }
+    // reset CO map keys to match current fields, keeping existing choices where labels persist
+    const newMap = {};
+    ids.forEach(id => { if (state.coMap[id]) newMap[id] = state.coMap[id]; });
+    state.coMap = newMap;
+    goStep(3);
+  });
+}
+
+/* ============================================================
+   STEP 3 — CO MAPPING
+   ============================================================ */
+const CO_LIST = ['CO1', 'CO2', 'CO3', 'CO4', 'CO5', 'CO6'];
+
+function coFieldMeta() {
+  const p = state.pattern;
+  const meta = p.singles.map(q => ({ id: q.id, part: 'Part A', max: q.max }));
+  p.groups.forEach(g => {
+    g.options.forEach(o => meta.push({ id: o.id, part: `Alternative group ${g.name}`, max: o.max }));
+  });
+  return meta;
+}
+
+function stepCoMapHTML() {
+  const meta = coFieldMeta();
+  const parts = {};
+  meta.forEach(m => { (parts[m.part] = parts[m.part] || []).push(m); });
+
+  const sections = Object.entries(parts).map(([part, items]) => `
+    <div class="pattern-section">
+      <div class="head"><h3>${esc(part)}</h3></div>
+      ${items.map(m => `
+        <div class="qrow">
+          <span class="qid">${esc(m.id)}</span>
+          <span class="grp-label">max ${m.max}</span>
+          <select data-field-id="${esc(m.id)}" style="max-width:160px">
+            <option value="">&mdash; select CO &mdash;</option>
+            ${CO_LIST.map(co => `<option value="${co}" ${state.coMap[m.id] === co ? 'selected' : ''}>${co}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+    </div>`).join('');
+
+  const mappedCount = meta.filter(m => state.coMap[m.id]).length;
+
+  return `
+    <h2>Step 3 &middot; CO Mapping</h2>
+    <p class="sub">Tell the system which Course Outcome each question belongs to. Every question must be mapped before results can be generated.</p>
+
+    ${sections}
+
+    <div class="co-total-line" id="coMapStatus">Mapped <strong>${mappedCount}</strong> of <strong>${meta.length}</strong> questions.</div>
+
+    <div class="panel-footer">
+      <button class="ghost" id="backToStep2">&larr; Back</button>
+      <button id="step3Next">Next: Pass Mark &rarr;</button>
+    </div>
+  `;
+}
+
+function afterStepCoMap() {
+  const panel = document.getElementById('panel');
+  const meta = coFieldMeta();
+
+  panel.addEventListener('change', e => {
+    const id = e.target.dataset.fieldId;
+    if (!id) return;
+    if (e.target.value) state.coMap[id] = e.target.value; else delete state.coMap[id];
+    const mappedCount = meta.filter(m => state.coMap[m.id]).length;
+    document.getElementById('coMapStatus').innerHTML = `Mapped <strong>${mappedCount}</strong> of <strong>${meta.length}</strong> questions.`;
+  });
+
+  document.getElementById('backToStep2').addEventListener('click', () => goStep(2));
+
+  document.getElementById('step3Next').addEventListener('click', () => {
+    const unmapped = meta.filter(m => !state.coMap[m.id]);
+    if (unmapped.length) {
+      document.getElementById('coMapStatus').insertAdjacentHTML('afterend',
+        `<div class="alert warn">&#9888; Configuration warning: ${unmapped.map(m => esc(m.id)).join(', ')} ${unmapped.length === 1 ? 'is' : 'are'} not mapped to a CO yet. Map every question before generating results.</div>`);
+      return;
+    }
+    goStep(4);
+  });
+}
+
+/* ============================================================
+   STEP 4 — PASS MARK
+   ============================================================ */
+function stepPassMarkHTML() {
+  return `
+    <h2>Step 4 &middot; Pass Mark</h2>
+    <p class="sub">Set the minimum Total /100 a student must reach to pass. This is used for the Result column and the summary dashboard.</p>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Pass mark</label>
+        <input type="number" id="passMarkInput" min="0" max="100" step="0.5" value="${state.passMark}">
+      </div>
+      <div class="field">
+        <label class="field-label">Maximum marks</label>
+        <input type="text" value="100" disabled>
+      </div>
+    </div>
+
+    <div class="panel-footer">
+      <button class="ghost" id="backToStep3">&larr; Back</button>
+      <button id="step4Next">Next: Generate Results &rarr;</button>
+    </div>
+  `;
+}
+
+function afterStepPassMark() {
+  document.getElementById('backToStep3').addEventListener('click', () => goStep(3));
+  document.getElementById('step4Next').addEventListener('click', () => {
+    const v = Number(document.getElementById('passMarkInput').value);
+    if (Number.isNaN(v) || v < 0 || v > 100) {
+      document.getElementById('passMarkInput').insertAdjacentHTML('afterend', `<div class="alert error">Enter a pass mark between 0 and 100.</div>`);
+      return;
+    }
+    state.passMark = v;
+    goStep(5);
+  });
+}
+
+/* ============================================================
+   STEP 5 — GENERATE RESULTS
+   ============================================================ */
+function stepGenerateHTML() {
+  const patternTotal = patternTotalMax(state.pattern);
+  const meta = coFieldMeta();
+  const mappedCount = meta.filter(m => state.coMap[m.id]).length;
+  return `
+    <h2>Step 5 &middot; Generate Results</h2>
+    <p class="sub">Review the configuration below, then generate. Marks will be distributed automatically, CO1&ndash;CO6 calculated, and every student validated before results are shown.</p>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Students</div><div class="value">${state.students.length}</div></div>
+      <div class="stat-card"><div class="label">Paper max</div><div class="value">${patternTotal}</div></div>
+      <div class="stat-card"><div class="label">CO mapped</div><div class="value">${mappedCount}/${meta.length}</div></div>
+      <div class="stat-card"><div class="label">Pass mark</div><div class="value">${state.passMark}</div></div>
+    </div>
+
+    <div id="genAlertBox"></div>
+
+    <button id="generateBtn" style="padding:12px 26px;font-size:15px;">Generate Results</button>
+  `;
+}
+
+function afterStepGenerate() {
+  document.getElementById('generateBtn').addEventListener('click', () => {
+    const box = document.getElementById('genAlertBox');
+    const studentErrs = validateStudents();
+    if (studentErrs.length) {
+      box.innerHTML = `<div class="alert error"><strong>Fix student details first:</strong><ul>${studentErrs.slice(0,10).map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
+      return;
+    }
+    const meta = coFieldMeta();
+    const unmapped = meta.filter(m => !state.coMap[m.id]);
+    if (unmapped.length) {
+      box.innerHTML = `<div class="alert error"><strong>CO mapping incomplete:</strong> ${unmapped.map(m=>esc(m.id)).join(', ')} not mapped.</div>`;
+      return;
+    }
+
+    const results = state.students.map(s => {
+      let attempt = 0;
+      let r = processStudent(state.pattern, state.coMap, s.regNo.trim(), s.name.trim(), s.total, state.passMark);
+      while (!r.valid && attempt < 5) {
+        attempt += 1;
+        r = processStudent(state.pattern, state.coMap, s.regNo.trim() + '#' + attempt, s.name.trim(), s.total, state.passMark);
+        r.regNo = s.regNo.trim();
+      }
+      return r;
+    });
+
+    state.results = results;
+    box.innerHTML = '';
+    goStep(6);
+  });
+}
+
+/* ============================================================
+   STEP 6 — VIEW & DOWNLOAD RESULTS
+   ============================================================ */
+function stepResultsHTML() {
+  const results = state.results || [];
+  const fields = allFieldIds(state.pattern);
+  const total = results.length;
+  const passed = results.filter(r => r.result === 'PASS').length;
+  const failed = total - passed;
+  const passPct = total ? Math.round((passed / total) * 1000) / 10 : 0;
+  const failPct = total ? Math.round((failed / total) * 1000) / 10 : 0;
+  const invalidCount = results.filter(r => !r.valid).length;
+
+  const headCols = ['S.No', 'Register No', 'Student Name', ...fields, ...CO_LIST, 'Total /100', 'Result', 'View'];
+
+  const rowsHTML = results.map((r, i) => {
+    const fieldCells = fields.map(f => `<td class="num">${fmtNum(r.marksByField[f])}</td>`).join('');
+    const coCells = CO_LIST.map(co => `<td class="num">${fmtNum(r.coTotals[co])}</td>`).join('');
+    const badge = r.result === 'PASS' ? `<span class="badge pass">PASS &#10003;</span>` : `<span class="badge fail">FAIL &#10005;</span>`;
+    const flag = !r.valid ? ` <span class="badge warn" title="${esc(r.errors.join('; '))}">&#9888; check</span>` : '';
+    return `<tr>
+      <td class="num">${i + 1}</td>
+      <td>${esc(r.regNo)}</td>
+      <td>${esc(r.name)}</td>
+      ${fieldCells}
+      ${coCells}
+      <td class="num">${fmtNum(r.total100)}</td>
+      <td class="center">${badge}${flag}</td>
+      <td class="center"><button class="small secondary" data-view-idx="${i}">View</button></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <h2>Step 6 &middot; Results Dashboard</h2>
+    <p class="sub">Consolidated question-wise marks, CO totals and pass/fail status for every student.</p>
+
+    ${invalidCount ? `<div class="alert warn">&#9888; Distribution Error: ${invalidCount} student(s) could not be fully validated. Check the flagged rows below.</div>` : ''}
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Total Students</div><div class="value">${total}</div></div>
+      <div class="stat-card"><div class="label">Maximum Marks</div><div class="value">100</div></div>
+      <div class="stat-card"><div class="label">Pass Mark</div><div class="value">${state.passMark}</div></div>
+      <div class="stat-card pass"><div class="label">Passed</div><div class="value">${passed}</div></div>
+      <div class="stat-card fail"><div class="label">Failed</div><div class="value">${failed}</div></div>
+      <div class="stat-card pass"><div class="label">Pass %</div><div class="value">${passPct}%</div></div>
+      <div class="stat-card fail"><div class="label">Fail %</div><div class="value">${failPct}%</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>${headCols.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+        <tbody>${rowsHTML}</tbody>
+      </table>
+    </div>
+
+    <div class="panel-footer">
+      <button class="ghost" id="backToStep5">&larr; Back</button>
+      <button id="downloadExcelBtn">Download Excel</button>
+    </div>
+  `;
+}
+
+function afterStepResults() {
+  const panel = document.getElementById('panel');
+  panel.addEventListener('click', e => {
+    if (e.target.dataset.viewIdx !== undefined) openStudentModal(Number(e.target.dataset.viewIdx));
+  });
+  document.getElementById('backToStep5').addEventListener('click', () => goStep(5));
+  document.getElementById('downloadExcelBtn').addEventListener('click', downloadExcel);
+}
+
+function openStudentModal(idx) {
+  const r = state.results[idx];
+  const p = state.pattern;
+  const rowsHTML = [];
+  p.singles.forEach(q => {
+    rowsHTML.push(`<tr><td>${esc(q.id)}</td><td class="num">${fmtNum(q.max)}</td><td class="num">${fmtNum(r.marksByField[q.id])}</td></tr>`);
+  });
+  p.groups.forEach(g => {
+    g.options.forEach(o => {
+      const attempted = r.selection[g.name] === o.id;
+      const obtained = attempted ? fmtNum(r.marksByField[o.id]) : '&mdash;';
+      rowsHTML.push(`<tr><td>${esc(o.id)}${attempted ? ' <span class="hint">(attempted)</span>' : ''}</td><td class="num">${fmtNum(o.max)}</td><td class="num">${obtained}</td></tr>`);
+    });
+  });
+
+  const coRows = CO_LIST.map(co => `<tr><td>${co}</td><td class="num" colspan="2">${fmtNum(r.coTotals[co])}</td></tr>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="close-x" id="closeModal">&times;</button>
+      <h3>${esc(r.name)}</h3>
+      <p class="meta-line">Register Number: <strong>${esc(r.regNo)}</strong></p>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:18px;">
+        <div class="stat-card"><div class="label">Total</div><div class="value">${fmtNum(r.total100)}/100</div></div>
+        <div class="stat-card"><div class="label">Percentage</div><div class="value">${r.percentage}%</div></div>
+        <div class="stat-card ${r.result==='PASS'?'pass':'fail'}"><div class="label">Result</div><div class="value">${r.result === 'PASS' ? 'PASS ✓' : 'FAIL ✕'}</div></div>
+      </div>
+      <p class="meta-line">Pass mark: ${state.passMark}</p>
+
+      <h3 style="font-size:15px;margin-top:22px;">Question-wise Marks</h3>
+      <table style="width:100%;font-size:13px;margin-bottom:18px;">
+        <thead><tr><th>Question</th><th>Maximum</th><th>Obtained</th></tr></thead>
+        <tbody>${rowsHTML.join('')}</tbody>
+      </table>
+
+      <h3 style="font-size:15px;">CO Totals</h3>
+      <table style="width:100%;font-size:13px;">
+        <tbody>${coRows}</tbody>
+      </table>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('closeModal').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+/* ---- Excel export ---- */
+function downloadExcel() {
+  const fields = allFieldIds(state.pattern);
+  const header = ['S.No', 'Register No', 'Student Name', ...fields, ...CO_LIST, 'Total /100', 'Result'];
+  const rows = state.results.map((r, i) => [
+    i + 1, r.regNo, r.name,
+    ...fields.map(f => r.marksByField[f]),
+    ...CO_LIST.map(co => r.coTotals[co]),
+    r.total100,
+    r.result,
+  ]);
+  const aoa = [header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = header.map((h, i) => ({ wch: i < 3 ? 16 : 8 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'UT1 Result');
+  XLSX.writeFile(wb, 'Generated_UT1_Result.xlsx');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+render();
+</script>
+</body>
+</html>
